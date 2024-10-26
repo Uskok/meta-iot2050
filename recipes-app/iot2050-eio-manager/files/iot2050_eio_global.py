@@ -1,7 +1,8 @@
-# Copyright (c) Siemens AG, 2023
+# Copyright (c) Siemens AG, 2023-2024
 #
 # Authors:
 #  Su Bao Cheng <baocheng.su@siemens.com>
+#  Li Hua Qian <huaqian.li@siemens.com>
 #
 # SPDX-License-Identifier: MIT
 from dotenv import dotenv_values
@@ -65,18 +66,24 @@ EIO_CONFIG_TEMP_ROOT = effective_conf['EIO_CONFIG_TEMP_ROOT']
 eio_schema_top = f"{EIO_SCHEMA_ROOT}/schema-sm-config.yaml"
 eio_schema_refs = [
     f"{EIO_SCHEMA_ROOT}/schema-na.yaml",
-    f"{EIO_SCHEMA_ROOT}/schema-sm1223-ac-rly.yaml",
+    f"{EIO_SCHEMA_ROOT}/schema-sm1223-di-dq.yaml",
     f"{EIO_SCHEMA_ROOT}/schema-sm1231-ai.yaml",
     f"{EIO_SCHEMA_ROOT}/schema-sm1231-rtd.yaml",
-    f"{EIO_SCHEMA_ROOT}/schema-sm1238-em-480vac.yaml"
+    f"{EIO_SCHEMA_ROOT}/schema-sm-sens-di.yaml",
+    f"{EIO_SCHEMA_ROOT}/schema-sm1238-em-480vac.yaml",
+    f"{EIO_SCHEMA_ROOT}/schema-sm1221-8di.yaml"
 ]
 
 eio_conf_templates = [
     f"{EIO_CONFIG_TEMP_ROOT}/mlfb-6ES7223-1QH32-0XB0.yaml",
+    f"{EIO_CONFIG_TEMP_ROOT}/mlfb-6ES7223-1PL32-0XB0.yaml",
     f"{EIO_CONFIG_TEMP_ROOT}/mlfb-6ES7231-4HF32-0XB0.yaml",
     f"{EIO_CONFIG_TEMP_ROOT}/mlfb-6ES7231-5PD32-0XB0.yaml",
     f"{EIO_CONFIG_TEMP_ROOT}/mlfb-6ES7231-5PF32-0XB0.yaml",
+    f"{EIO_CONFIG_TEMP_ROOT}/mlfb-6ES7647-0CM00-1AA2.yaml",
     f"{EIO_CONFIG_TEMP_ROOT}/mlfb-6ES7238-5XA32-0XB0.yaml",
+    f"{EIO_CONFIG_TEMP_ROOT}/mlfb-6ES7231-4HD32-0XB0.yaml",
+    f"{EIO_CONFIG_TEMP_ROOT}/mlfb-6ES7221-1BF32-0XB0.yaml",
     f"{EIO_CONFIG_TEMP_ROOT}/mlfb-NA.yaml"
 ]
 

@@ -19,7 +19,6 @@ SRC_URI:append:secureboot = " \
     file://keys/custMpk.crt \
     file://keys/custMpk.key \
     file://keys/custMpk.pem \
-    file://keys/x509-sysfw-template.txt \
     file://secure-boot.cfg"
 SRC_URI:append:otpcmd = " \
     file://otpcmd.cfg"
@@ -42,8 +41,11 @@ DEBIAN_BUILD_DEPENDS:append:secureboot = ", python3-pycryptodome:native, \
 DEPENDS:append:otpcmd = " secure-boot-otp-provisioning"
 DEBIAN_BUILD_DEPENDS:append:otpcmd = ", secure-boot-otp-provisioning"
 
+SB_SIGN = "0"
+SB_SIGN:secureboot = "1"
+
 TEMPLATE_FILES += "rules.tmpl"
-TEMPLATE_VARS += "FIRMWARE_SECURE_VER"
+TEMPLATE_VARS += "FIRMWARE_SECURE_VER SB_SIGN"
 
 U_BOOT_CONFIG_PACKAGE = "1"
 

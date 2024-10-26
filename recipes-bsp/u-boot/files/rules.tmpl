@@ -10,15 +10,8 @@ SET_CROSS_BUILD_TOOLS=CROSS_BUILD_TOOLS=y
 endif
 
 override_dh_auto_build:
-	if [ -e keys ]; then \
+	if [ "${SB_SIGN}" = "1" ]; then \
 		tools/key2dtsi.py -c -s keys/custMpk.pem arch/arm/dts/custMpk.dtsi; \
-		openssl x509 -in keys/custMpk.crt -out custMpk.crt.pem -outform der; \
-		rm -f custMpk.esl; \
-		efisiglist -a -c custMpk.crt.pem -o custMpk.esl; \
-		rm -f ubootefi.var; \
-		tools/efivar.py set -i ubootefi.var -n PK -d custMpk.esl -t file; \
-		tools/efivar.py set -i ubootefi.var -n KEK -d custMpk.esl -t file; \
-		tools/efivar.py set -i ubootefi.var -n db -d custMpk.esl -t file; \
 	fi
 	$(MAKE) $(PARALLEL_MAKE) ${U_BOOT_CONFIG}
 	$(MAKE) $(PARALLEL_MAKE) ${U_BOOT_BIN} \
@@ -29,10 +22,10 @@ override_dh_auto_build:
 	else \
 		./scripts/get_default_envs.sh >u-boot-initial-env; \
 	fi
-	$(MAKE) $(PARALLEL_MAKE) $(SET_CROSS_BUILD_TOOLS) NO_SDL=1 tools-only envtools
-	if [ -e keys ]; then \
+	if [ "${SB_SIGN}" = "1" ]; then \
 		tools/iot2050-sign-fw.sh keys/custMpk.pem ${FIRMWARE_SECURE_VER}; \
 	fi
+	$(MAKE) $(PARALLEL_MAKE) $(SET_CROSS_BUILD_TOOLS) NO_SDL=1 tools-only envtools
 
 override_dh_auto_install:
 	mv tools/env/lib.a tools/env/libubootenv.a

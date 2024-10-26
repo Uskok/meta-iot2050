@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) Siemens AG, 2023
+# Copyright (c) Siemens AG, 2023-2024
 #
 # Authors:
 #  Su Bao Cheng <baocheng.su@siemens.com>
+#  Li Hua Qian <huaqian.li@siemens.com>
 #
 # SPDX-License-Identifier: MIT
 import struct
@@ -63,17 +64,26 @@ class SM1223SerDes(ModuleSerDes):
         header_fmt = 'p8 u8'
         di_ch_fmt = 'p8 p4u4'
         dq_ch_fmt = 'p8 u1p1u2p1p3'
-        self.serdesfmt = ''.join([header_fmt, di_ch_fmt * 8, header_fmt, dq_ch_fmt * 8])
+        if self.mlfb == '6ES7223-1QH32-0XB0':
+            self.ch_num = 8
+        else:
+            self.ch_num = 16
+        self.serdesfmt = ''.join([header_fmt, di_ch_fmt * self.ch_num,
+                                  header_fmt, dq_ch_fmt * self.ch_num])
 
     def serialize(self, config: Dict) -> bytes:
         parameters = [0x02]
-        for i in range(0, 8):
+        for i in range(0, self.ch_num):
             if i < 4:
                 parameters.append(config['di']['ch0_3_delay_time'])
-            else:
+            elif i < 8:
                 parameters.append(config['di']['ch4_7_delay_time'])
+            elif i < 12:
+                parameters.append(config['di']['ch8_11_delay_time'])
+            else:
+                parameters.append(config['di']['ch12_15_delay_time'])
         parameters.append(0x02)
-        for i in range(0, 8):
+        for i in range(0, self.ch_num):
             parameters.append(config['dq'][f'ch{i}']['substitute'])
             parameters.append(config['dq']['behavior_with_OD'])
         return bitstruct.pack(self.serdesfmt, *parameters)
@@ -87,79 +97,29 @@ class SM1223SerDes(ModuleSerDes):
                 "ch4_7_delay_time": ""
             },
             "dq": {
-                "behavior_with_OD": "",
-                "ch0": {"substitute": ""},
-                "ch1": {"substitute": ""},
-                "ch2": {"substitute": ""},
-                "ch3": {"substitute": ""},
-                "ch4": {"substitute": ""},
-                "ch5": {"substitute": ""},
-                "ch6": {"substitute": ""},
-                "ch7": {"substitute": ""}
+                "behavior_with_OD": ""
             }
         }
 
-        _, \
-        config['di']['ch0_3_delay_time'], _, _, _, \
-        config['di']['ch4_7_delay_time'], _, _, _, \
-        _, \
-        config['dq']['ch0']['substitute'], config['dq']['behavior_with_OD'], \
-        config['dq']['ch1']['substitute'], _, \
-        config['dq']['ch2']['substitute'], _, \
-        config['dq']['ch3']['substitute'], _, \
-        config['dq']['ch4']['substitute'], _, \
-        config['dq']['ch5']['substitute'], _, \
-        config['dq']['ch6']['substitute'], _, \
-        config['dq']['ch7']['substitute'], _ = bitstruct.unpack(self.serdesfmt, blob)
-        return config
+        unpack_elements = ['_']
+        unpack_elements.extend([
+            "config['di']['ch0_3_delay_time']", "_", "_", "_",
+            "config['di']['ch4_7_delay_time']", "_", "_", "_"])
 
+        if self.ch_num == 16:
+            unpack_elements.extend([
+                "config['di']['ch8_11_delay_time']", "_", "_", "_",
+                "config['di']['ch12_15_delay_time']", "_", "_", "_"])
 
-class SM1223AI8SerDes(ModuleSerDes):
-    """SM1223 8AI Configuration (de)/serializer"""
-    def __init__(self, mlfb):
-        super().__init__(mlfb)
-        header_fmt = 'p8 u8'
-        ch_fmt = 'u8 u8 p8 u4u4 p8p8 b1b1p1b1p3b1 p8 p144'
-        self.serdesfmt = ''.join([header_fmt, ch_fmt * 8])
+        unpack_elements.extend(["_"])
 
-    def serialize(self, config: Dict) -> bytes:
-        parameters = [0x1A]
-        for i in range(0, 8):
-            parameters.extend([
-                config[f'ch{i}']['type'],
-                config[f'ch{i}']['range'],
-                config['integ_time'],
-                config[f'ch{i}']['smooth'],
-                config[f'ch{i}']['overflow_alarm'],
-                config[f'ch{i}']['underflow_alarm'],
-                config[f'ch{i}']['open_wire_alarm'],
-                config['power_alarm']
-            ])
+        for i in range(0, self.ch_num):
+            config['dq'][f'ch{i}'] = {}
+            unpack_elements.extend([
+                f"config['dq']['ch{i}']['substitute']",
+                "_" if i > 0 else "config['dq']['behavior_with_OD']"])
 
-        return bitstruct.pack(self.serdesfmt, *parameters)
-
-    def deserialize(self, blob: bytes) -> Dict:
-        config = {
-            "description": "Analog input module AI8 x 13 bits",
-            "mlfb": self.mlfb
-        }
-
-        unpack_statement = '_'
-        for i in range(0, 8):
-            config[f'ch{i}'] = {}
-            integ_time_ele = "config['integ_time']" if i == 0 else "_"
-            power_alarm_ele = "config['power_alarm']" if i == 0 else "_"
-            unpack_statement = ','.join([
-                unpack_statement,
-                f"config['ch{i}']['type']",
-                f"config['ch{i}']['range']",
-                integ_time_ele,
-                f"config['ch{i}']['smooth']",
-                f"config['ch{i}']['overflow_alarm']",
-                f"config['ch{i}']['underflow_alarm']",
-                f"config['ch{i}']['open_wire_alarm']",
-                power_alarm_ele
-                ])
+        unpack_statement = ",".join(unpack_elements)
         unpack_statement += ' = bitstruct.unpack(self.serdesfmt, blob)'
         exec(unpack_statement) # pylint: disable=exec-used
         return config
@@ -222,6 +182,23 @@ class SM1223RTDSerDes(ModuleSerDes):
         unpack_statement += ' = bitstruct.unpack(self.serdesfmt, blob)'
         exec(unpack_statement) # pylint: disable=exec-used
         return config
+
+
+class SMSensDISerDes(ModuleSerDes):
+    """SM SENS DI Configuration (de)/serializer"""
+    def __init__(self, mlfb):
+        super().__init__(mlfb)
+
+    def serialize(self, config: Dict) -> bytes:
+        blob = bytearray(14)
+        struct.pack_into('B', blob, 1, 0x02)
+        return blob
+
+    def deserialize(self, blob: bytes) -> Dict:
+        return {
+            "description": "SM SENS DI",
+            "mlfb": self.mlfb
+        }
 
 
 class SM1238SerDes(ModuleSerDes):
@@ -327,6 +304,94 @@ class SM1238SerDes(ModuleSerDes):
         return config
 
 
+class SM1231AISerDes(ModuleSerDes):
+    """SM1231 4/8AI Configuration (de)/serializer"""
+    def __init__(self, mlfb):
+        super().__init__(mlfb)
+        header_fmt = 'p8 u8'
+        ch_fmt = 'u8 u8 p8 u4u4 p8p8 b1b1p1b1p3b1 p8 p144'
+        if self.mlfb == '6ES7231-4HD32-0XB0':
+            self.ch_num = 4
+        else:
+            self.ch_num = 8
+        self.serdesfmt = ''.join([header_fmt, ch_fmt * self.ch_num])
+
+    def serialize(self, config: Dict) -> bytes:
+        parameters = [0x1A]
+        for i in range(0, self.ch_num):
+            parameters.extend([
+                config[f'ch{i}']['type'],
+                config[f'ch{i}']['range'],
+                config['integ_time'],
+                config[f'ch{i}']['smooth'],
+                config[f'ch{i}']['overflow_alarm'],
+                config[f'ch{i}']['underflow_alarm'],
+                config[f'ch{i}']['open_wire_alarm'],
+                config['power_alarm']
+            ])
+
+        return bitstruct.pack(self.serdesfmt, *parameters)
+
+    def deserialize(self, blob: bytes) -> Dict:
+        config = {
+            "description": f"Analog input module AI{self.ch_num} x 13 bits",
+            "mlfb": self.mlfb
+        }
+
+        unpack_statement = '_'
+        for i in range(0, self.ch_num):
+            config[f'ch{i}'] = {}
+            integ_time_ele = "config['integ_time']" if i == 0 else "_"
+            power_alarm_ele = "config['power_alarm']" if i == 0 else "_"
+            unpack_statement = ','.join([
+                unpack_statement,
+                f"config['ch{i}']['type']",
+                f"config['ch{i}']['range']",
+                integ_time_ele,
+                f"config['ch{i}']['smooth']",
+                f"config['ch{i}']['overflow_alarm']",
+                f"config['ch{i}']['underflow_alarm']",
+                f"config['ch{i}']['open_wire_alarm']",
+                power_alarm_ele
+                ])
+        unpack_statement += ' = bitstruct.unpack(self.serdesfmt, blob)'
+        exec(unpack_statement) # pylint: disable=exec-used
+        return config
+
+
+class SM1221DI8SerDes(ModuleSerDes):
+    """SM1221 8DI x 24VDC Configuration (de)/serializer"""
+    def __init__(self, mlfb):
+        super().__init__(mlfb)
+        header_fmt = 'p8 u8'
+        di_ch_fmt = 'p8 p4u4'
+        self.serdesfmt = ''.join([header_fmt, di_ch_fmt * 8])
+
+    def serialize(self, config: Dict) -> bytes:
+        parameters = [0x02]
+        for i in range(0, 8):
+            if i < 4:
+                parameters.append(config['di']['ch0_3_delay_time'])
+            else:
+                parameters.append(config['di']['ch4_7_delay_time'])
+        return bitstruct.pack(self.serdesfmt, *parameters)
+
+    def deserialize(self, blob: bytes) -> Dict:
+        config = {
+            "description": "SM 1221 DI8 x 24VDC",
+            "mlfb": self.mlfb,
+            "di": {
+                "ch0_3_delay_time": "",
+                "ch4_7_delay_time": ""
+            }
+        }
+
+        _, \
+        config['di']['ch0_3_delay_time'], _, _, _, \
+        config['di']['ch4_7_delay_time'], _, _, _ = bitstruct.unpack(self.serdesfmt, blob)
+        return config
+
+
 class NoModSerDes(ModuleSerDes):
     """No module configuration (de)/serializer"""
     def __init__(self, mlfb):
@@ -346,21 +411,25 @@ class ModSerDesFactory(object):
     @classmethod
     def produce(cls, mlfb='NA') -> ModuleSerDes:
         mlfb = mlfb.rstrip('\0')
-        if mlfb == '6ES7223-1QH32-0XB0':
+        if mlfb == '6ES7223-1QH32-0XB0' or mlfb == '6ES7223-1PL32-0XB0':
             return SM1223SerDes(mlfb)
-        elif mlfb == '6ES7231-4HF32-0XB0':
-            return SM1223AI8SerDes(mlfb)
+        elif mlfb == '6ES7231-4HD32-0XB0' or mlfb == '6ES7231-4HF32-0XB0':
+            return SM1231AISerDes(mlfb)
         elif mlfb == '6ES7231-5PD32-0XB0' or mlfb == '6ES7231-5PF32-0XB0':
             return SM1223RTDSerDes(mlfb)
         elif mlfb == '6ES7238-5XA32-0XB0':
             return SM1238SerDes(mlfb)
+        elif mlfb == '6ES7647-0CM00-1AA2':
+            return SMSensDISerDes(mlfb)
+        elif mlfb == '6ES7221-1BF32-0XB0':
+            return SM1221DI8SerDes(mlfb)
         else:
             return NoModSerDes(mlfb)
 
 
 class EIOConfigSerDes():
     """Extended IO configuration serializer and deserializer
-    
+
     The data struct of the binary format of the configuration data:
 
     struct config_data {
@@ -437,7 +506,7 @@ class EIOConfigSerDes():
     @staticmethod
     def _get_next_slot_blob(blob: bytes) -> List:
         """Expand slots blob.
-        
+
         Extract metadata such as blob length, mlfb, version, and slot
         blob data of all slots.
 
@@ -542,9 +611,14 @@ class EIOConfigValidator(object):
         # be the same measurement type
         for i in range(1, 7):
             slot_conf = config[f"slot{i}"]
-            if slot_conf["mlfb"] != "6ES7231-4HF32-0XB0":
+            if slot_conf["mlfb"] == "6ES7231-4HF32-0XB0" :
+                chanel_num = 8
+            elif slot_conf["mlfb"] == "6ES7231-4HD32-0XB0":
+                chanel_num = 4
+            else:
                 continue
-            for j in range(0, 8, 2):
+
+            for j in range(0, chanel_num, 2):
                 ch_prev_type = slot_conf[f"ch{j}"]["type"]
                 ch_next_type = slot_conf[f"ch{j+1}"]["type"]
                 if ch_prev_type != ch_next_type:

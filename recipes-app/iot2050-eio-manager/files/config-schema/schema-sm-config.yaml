@@ -1,4 +1,4 @@
-# Copyright (c) Siemens AG, 2023
+# Copyright (c) Siemens AG, 2023-2024
 #
 # Authors:
 #  Su Bao Cheng <baocheng.su@siemens.com>
@@ -37,10 +37,14 @@ $defs:
       mlfb:
         enum:
           - 6ES7223-1QH32-0XB0
+          - 6ES7223-1PL32-0XB0
           - 6ES7231-4HF32-0XB0
           - 6ES7231-5PD32-0XB0
           - 6ES7231-5PF32-0XB0
           - 6ES7238-5XA32-0XB0
+          - 6ES7647-0CM00-1AA2
+          - 6ES7231-4HD32-0XB0
+          - 6ES7221-1BF32-0XB0
           - NA
 
     allOf:
@@ -48,14 +52,18 @@ $defs:
       - if:
           properties:
             mlfb:
-              const: 6ES7223-1QH32-0XB0
+              enum:
+                - 6ES7223-1QH32-0XB0
+                - 6ES7223-1PL32-0XB0
         then:
-          $ref: https://iot2050-sm/sm1223-ac-rly
+          $ref: https://iot2050-sm/sm1223-di-dq
 
       - if:
           properties:
             mlfb:
-              const: 6ES7231-4HF32-0XB0
+              enum:
+                - 6ES7231-4HD32-0XB0
+                - 6ES7231-4HF32-0XB0
         then:
           $ref: https://iot2050-sm/sm1231-ai
 
@@ -74,6 +82,20 @@ $defs:
               const: 6ES7238-5XA32-0XB0
         then:
           $ref: https://iot2050-sm/sm1238-em-480vac
+
+      - if:
+          properties:
+            mlfb:
+              const: 6ES7647-0CM00-1AA2
+        then:
+          $ref: https://iot2050-sm/sm-sens-di
+
+      - if:
+          properties:
+            mlfb:
+              const: 6ES7221-1BF32-0XB0
+        then:
+          $ref: https://iot2050-sm/sm1221-8di
 
       - if:
           properties:
